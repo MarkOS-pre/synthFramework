@@ -14,16 +14,25 @@
 //==============================================================================
 SynthFrameworkAudioProcessor::SynthFrameworkAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
-     : AudioProcessor (BusesProperties()
-                     #if ! JucePlugin_IsMidiEffect
-                      #if ! JucePlugin_IsSynth
-                       .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-                      #endif
-                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                     #endif
-                       )
+    : AudioProcessor(BusesProperties()
+#if ! JucePlugin_IsMidiEffect
+#if ! JucePlugin_IsSynth
+        .withInput("Input", juce::AudioChannelSet::stereo(), true)
+#endif
+        .withOutput("Output", juce::AudioChannelSet::stereo(), true)
+#endif
+    ),
+    attackTime(0.1f),
+    decayTime(0.1f),
+    sustainTime(0.1f),
+    releaseTime(0.1f),
+    tree(*this, nullptr, "PARAMETER", { std::make_unique<juce::AudioParameterFloat>("Attack", "Attack", 0.1f, 5000.0f, 0.1f),
+                                        std::make_unique<juce::AudioParameterFloat>("Decay", "Decay", 0.1f, 5000.0f,0.1f),
+                                        std::make_unique<juce::AudioParameterFloat>("Sustain", "Sustain", 0.1f, 5000.0f,0.1f) ,
+                                        std::make_unique<juce::AudioParameterFloat>("Release", "Release", 0.1f, 5000.0f,0.1f) })
 #endif
 {
+    
     mySynth.clearVoices();
 
     for (int i = 0; i < 5; i++)
@@ -144,29 +153,17 @@ bool SynthFrameworkAudioProcessor::isBusesLayoutSupported (const BusesLayout& la
 
 void SynthFrameworkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    
+    for (int i = 0; i < mySynth.getNumVoices(); i++)
+    {
+        if (myVoice = dynamic_cast<SynthVoice*>(mySynth.getVoice(i)))
+        {
+            myVoice->getParam((float*)tree.getRawParameterValue("Attack"), (float*)tree.getRawParameterValue("Decay"), (float*)tree.getRawParameterValue("Sustain"),(float*)tree.getRawParameterValue("Release"));
+        }
+    }
+
     buffer.clear();
     mySynth.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
 
-
-
-  /*  juce::ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels  = getTotalNumInputChannels();
-    auto totalNumOutputChannels = getTotalNumOutputChannels();
-
-    
-    
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
-
-     
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
-    {
-        auto* channelData = buffer.getWritePointer (channel);
-
-        // ..do something to the data...
-    }
-    */
 }
 
 //==============================================================================
